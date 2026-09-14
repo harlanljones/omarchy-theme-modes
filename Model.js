@@ -9,6 +9,8 @@ var MAX_BACKGROUND_RECORDS = 256
 var MAX_INPUT_LINE_CHARS = 256
 var MAX_FIELD_CHARS = 4096
 var MAX_STATE_CHARS = 65536
+var MAX_PROFILES = 12
+var MAX_PROFILE_NAME_CHARS = 48
 
 function statePath(home) {
   return String(home || "") + STATE_PATH_SUFFIX
@@ -48,7 +50,7 @@ function isSafeLocalPath(path) {
 
 function defaultState(currentThemeSlug) {
   var slug = slugFromName(currentThemeSlug)
-  return {
+  var state = {
     lightTheme: slug || "flexoki-light",
     darkTheme: slug || "catppuccin",
     lightBackground: "",
@@ -61,6 +63,134 @@ function defaultState(currentThemeSlug) {
     darkStart: "19:00",
     batteryDarkOnBattery: true
   }
+  state.profiles = [profileFromState("default", "Default", state)]
+  state.activeProfile = "default"
+  return state
+}
+
+function profileFromState(id, name, state) {
+  return {
+    id: slugFromName(id) || "default",
+    name: clampText(String(name || "Default").trim() || "Default", MAX_PROFILE_NAME_CHARS),
+    lightTheme: slugFromName(state.lightTheme) || defaultStateTheme("light"),
+    darkTheme: slugFromName(state.darkTheme) || defaultStateTheme("dark"),
+    lightBackground: isSafeLocalPath(state.lightBackground) ? String(state.lightBackground) : "",
+    darkBackground: isSafeLocalPath(state.darkBackground) ? String(state.darkBackground) : ""
+  }
+}
+
+function defaultStateTheme(mode) {
+  return mode === "light" ? "flexoki-light" : "catppuccin"
+}
+
+function normalizeProfiles(raw, fallbackState) {
+  var fallback = profileFromState("default", "Default", fallbackState)
+  if (!Array.isArray(raw)) return [fallback]
+  var profiles = []
+  var seen = {}
+  for (var i = 0; i < raw.length && profiles.length < MAX_PROFILES; i++) {
+    var item = raw[i]
+    if (!item || typeof item !== "object") continue
+    var id = slugFromName(item.id) || "profile-" + String(i + 1)
+    if (seen[id]) continue
+    var profile = profileFromState(id, item.name || id, {
+      lightTheme: item.lightTheme || fallback.lightTheme,
+      darkTheme: item.darkTheme || fallback.darkTheme,
+      lightBackground: item.lightBackground || "",
+      darkBackground: item.darkBackground || ""
+    })
+    seen[profile.id] = true
+    profiles.push(profile)
+  }
+  return profiles.length > 0 ? profiles : [fallback]
+}
+
+function activeProfileId(state, requested) {
+  var id = slugFromName(requested || state.activeProfile)
+  var profiles = Array.isArray(state.profiles) ? state.profiles : []
+  for (var i = 0; i < profiles.length; i++) {
+    if (profiles[i].id === id) return id
+  }
+  return profiles.length > 0 ? profiles[0].id : "default"
+}
+
+function applyProfile(state, requestedId) {
+  var id = activeProfileId(state, requestedId)
+  var profiles = Array.isArray(state.profiles) ? state.profiles : []
+  for (var i = 0; i < profiles.length; i++) {
+    var profile = profiles[i]
+    if (profile.id === id) {
+      return Object.assign({}, state, {
+        activeProfile: id,
+        lightTheme: profile.lightTheme,
+        darkTheme: profile.darkTheme,
+        lightBackground: profile.lightBackground,
+        darkBackground: profile.darkBackground
+      })
+    }
+  }
+  return state
+}
+
+function updateActiveProfile(state) {
+  var id = activeProfileId(state)
+  var profiles = normalizeProfiles(state.profiles, state)
+  for (var i = 0; i < profiles.length; i++) {
+    if (profiles[i].id === id) {
+      profiles[i] = profileFromState(id, profiles[i].name, state)
+      break
+    }
+  }
+  return Object.assign({}, state, { profiles: profiles, activeProfile: id })
+}
+
+function createProfile(state) {
+  var next = updateActiveProfile(state)
+  var profiles = next.profiles.slice()
+  if (profiles.length >= MAX_PROFILES) return next
+  var number = profiles.length + 1
+  var id = "profile-" + String(number)
+  var seen = {}
+  for (var i = 0; i < profiles.length; i++) seen[profiles[i].id] = true
+  while (seen[id]) {
+    number++
+    id = "profile-" + String(number)
+  }
+  profiles.push(profileFromState(id, "Profile " + String(number), next))
+  return applyProfile(Object.assign({}, next, { profiles: profiles, activeProfile: id }), id)
+}
+
+function renameActiveProfile(state, name) {
+  var next = updateActiveProfile(state)
+  var label = clampText(String(name || "").trim(), MAX_PROFILE_NAME_CHARS)
+  if (!label) return next
+  var profiles = next.profiles.slice()
+  for (var i = 0; i < profiles.length; i++) {
+    if (profiles[i].id === next.activeProfile) {
+      profiles[i] = Object.assign({}, profiles[i], { name: label })
+      break
+    }
+  }
+  return Object.assign({}, next, { profiles: profiles })
+}
+
+function removeActiveProfile(state) {
+  var next = updateActiveProfile(state)
+  if (next.profiles.length <= 1) return next
+  var profiles = next.profiles.filter(function(profile) { return profile.id !== next.activeProfile })
+  return applyProfile(Object.assign({}, next, { profiles: profiles, activeProfile: profiles[0].id }), profiles[0].id)
+}
+
+function nextProfile(state, direction) {
+  var next = updateActiveProfile(state)
+  var profiles = next.profiles
+  var index = 0
+  for (var i = 0; i < profiles.length; i++) {
+    if (profiles[i].id === next.activeProfile) { index = i; break }
+  }
+  var step = direction === -1 ? -1 : 1
+  var target = profiles[(index + step + profiles.length) % profiles.length].id
+  return applyProfile(next, target)
 }
 
 function parseStateFile(raw, currentThemeSlug) {
@@ -90,6 +220,9 @@ function parseStateFile(raw, currentThemeSlug) {
     if (parsed.lightStart) base.lightStart = normalizeTime(parsed.lightStart, base.lightStart)
     if (parsed.darkStart) base.darkStart = normalizeTime(parsed.darkStart, base.darkStart)
     if (typeof parsed.batteryDarkOnBattery === "boolean") base.batteryDarkOnBattery = parsed.batteryDarkOnBattery
+    base.profiles = normalizeProfiles(parsed.profiles, base)
+    base.activeProfile = activeProfileId(base, parsed.activeProfile)
+    base = applyProfile(base, base.activeProfile)
   } catch (e) {
     return base
   }
@@ -98,18 +231,21 @@ function parseStateFile(raw, currentThemeSlug) {
 }
 
 function serializeState(state) {
+  var normalized = updateActiveProfile(state)
   return JSON.stringify({
-    lightTheme: slugFromName(state.lightTheme) || defaultState("").lightTheme,
-    darkTheme: slugFromName(state.darkTheme) || defaultState("").darkTheme,
-    lightBackground: isSafeLocalPath(state.lightBackground) ? String(state.lightBackground) : "",
-    darkBackground: isSafeLocalPath(state.darkBackground) ? String(state.darkBackground) : "",
-    mode: state.mode === "light" ? "light" : "dark",
-    manualOverride: !!state.manualOverride,
-    autoEnabled: !!state.autoEnabled,
-    autoSource: state.autoSource === "battery" ? "battery" : "time",
-    lightStart: normalizeTime(state.lightStart, "07:00"),
-    darkStart: normalizeTime(state.darkStart, "19:00"),
-    batteryDarkOnBattery: state.batteryDarkOnBattery !== false
+    lightTheme: slugFromName(normalized.lightTheme) || defaultStateTheme("light"),
+    darkTheme: slugFromName(normalized.darkTheme) || defaultStateTheme("dark"),
+    lightBackground: isSafeLocalPath(normalized.lightBackground) ? String(normalized.lightBackground) : "",
+    darkBackground: isSafeLocalPath(normalized.darkBackground) ? String(normalized.darkBackground) : "",
+    mode: normalized.mode === "light" ? "light" : "dark",
+    manualOverride: !!normalized.manualOverride,
+    autoEnabled: !!normalized.autoEnabled,
+    autoSource: normalized.autoSource === "battery" ? "battery" : "time",
+    lightStart: normalizeTime(normalized.lightStart, "07:00"),
+    darkStart: normalizeTime(normalized.darkStart, "19:00"),
+    batteryDarkOnBattery: normalized.batteryDarkOnBattery !== false,
+    activeProfile: normalized.activeProfile,
+    profiles: normalized.profiles
   }, null, 2) + "\n"
 }
 
