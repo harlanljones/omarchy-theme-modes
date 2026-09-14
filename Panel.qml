@@ -168,6 +168,8 @@ Panel {
     function toggle(): void { root.toggle() }
     function toggleMode(): string { themeModes.toggleModeManual(); return themeModes.state.mode }
     function followAutomatic(): string { themeModes.followAutomatic(); return "ok" }
+    function nextProfile(): string { themeModes.nextProfile(); return themeModes.state.activeProfile }
+    function previousProfile(): string { themeModes.previousProfile(); return themeModes.state.activeProfile }
     function refreshThemes(): string { themeModes.refreshThemes(); return "ok" }
     function status(): string {
       return JSON.stringify({
@@ -179,6 +181,9 @@ Panel {
         darkTheme: themeModes.state.darkTheme,
         lightBackground: themeModes.state.lightBackground,
         darkBackground: themeModes.state.darkBackground,
+        activeProfile: themeModes.state.activeProfile,
+        profileName: themeModes.activeProfileName,
+        profiles: themeModes.profiles,
         activeTheme: themeModes.activeThemeSlug,
         status: themeModes.statusText
       })
@@ -459,6 +464,90 @@ Panel {
 
     width: parent.width
     spacing: Style.space(10)
+
+    PanelSectionHeader {
+      text: "PROFILE"
+      foreground: root.foreground
+      fontFamily: root.fontFamily
+    }
+
+    Text {
+      width: parent.width
+      text: "Profiles keep separate light and dark themes, plus their backgrounds."
+      color: root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      wrapMode: Text.WordWrap
+    }
+
+    ButtonGroup {
+      width: parent.width
+      foreground: root.foreground
+      background: root.bar ? root.bar.background : Color.background
+      accent: Color.accent
+      fontFamily: root.fontFamily
+      value: themeModes.state.activeProfile
+      options: themeModes.profiles.map(function(profile) {
+        return { value: profile.id, label: profile.name, icon: "󰙆" }
+      })
+      onChanged: function(value) { themeModes.selectProfile(value) }
+    }
+
+    Row {
+      width: parent.width
+      spacing: Style.space(8)
+
+      TextField {
+        width: parent.width - addProfileButton.width - removeProfileButton.width - parent.spacing * 2
+        text: themeModes.activeProfileName
+        color: root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        onEditingFinished: themeModes.renameActiveProfile(text)
+      }
+
+      Rectangle {
+        id: addProfileButton
+        width: Style.space(34)
+        height: width
+        radius: Style.cornerRadius
+        color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10)
+        Text {
+          anchors.centerIn: parent
+          text: "+"
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.title
+        }
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: themeModes.createProfile()
+        }
+      }
+
+      Rectangle {
+        id: removeProfileButton
+        width: Style.space(34)
+        height: width
+        radius: Style.cornerRadius
+        opacity: themeModes.profiles.length > 1 ? 1.0 : 0.45
+        color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10)
+        Text {
+          anchors.centerIn: parent
+          text: "−"
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.title
+        }
+        MouseArea {
+          anchors.fill: parent
+          enabled: themeModes.profiles.length > 1
+          cursorShape: Qt.PointingHandCursor
+          onClicked: themeModes.removeActiveProfile()
+        }
+      }
+    }
 
     PanelSectionHeader {
       text: "MODE"

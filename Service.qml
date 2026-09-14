@@ -35,6 +35,13 @@ Item {
   readonly property bool onBattery: UPower.onBattery === true
   readonly property string activeThemeSlug: Model.themeForMode(state)
   readonly property string statusText: Model.statusLabel(state, onBattery)
+  readonly property var profiles: state.profiles || []
+  readonly property string activeProfileName: {
+    for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].id === state.activeProfile) return profiles[i].name
+    }
+    return "Default"
+  }
 
   function saveState(nextState) {
     state = nextState
@@ -42,7 +49,50 @@ Item {
   }
 
   function patchState(patch) {
-    saveState(Object.assign({}, state, patch || {}))
+    saveState(Model.updateActiveProfile(Object.assign({}, state, patch || {})))
+  }
+
+  function selectProfile(id) {
+    var next = Model.applyProfile(Model.updateActiveProfile(state), id)
+    if (next.activeProfile === state.activeProfile) return
+    saveState(next)
+    loadBackgroundsForSlug(Model.themeForMode(next))
+    applyCurrentMode(true)
+  }
+
+  function nextProfile() {
+    var next = Model.nextProfile(state, 1)
+    if (next.activeProfile === state.activeProfile) return
+    saveState(next)
+    loadBackgroundsForSlug(Model.themeForMode(next))
+    applyCurrentMode(true)
+  }
+
+  function previousProfile() {
+    var next = Model.nextProfile(state, -1)
+    if (next.activeProfile === state.activeProfile) return
+    saveState(next)
+    loadBackgroundsForSlug(Model.themeForMode(next))
+    applyCurrentMode(true)
+  }
+
+  function createProfile() {
+    var next = Model.createProfile(state)
+    if (next.activeProfile === state.activeProfile) return
+    saveState(next)
+    loadBackgroundsForSlug(Model.themeForMode(next))
+  }
+
+  function renameActiveProfile(name) {
+    saveState(Model.renameActiveProfile(state, name))
+  }
+
+  function removeActiveProfile() {
+    var next = Model.removeActiveProfile(state)
+    if (next.activeProfile === state.activeProfile) return
+    saveState(next)
+    loadBackgroundsForSlug(Model.themeForMode(next))
+    applyCurrentMode(true)
   }
 
   function setLightTheme(slug) {
