@@ -170,6 +170,9 @@ Panel {
     function followAutomatic(): string { themeModes.followAutomatic(); return "ok" }
     function nextProfile(): string { themeModes.nextProfile(); return themeModes.state.activeProfile }
     function previousProfile(): string { themeModes.previousProfile(); return themeModes.state.activeProfile }
+    function setLightTheme(slug): string { themeModes.setLightTheme(slug); return themeModes.state.lightTheme }
+    function setDarkTheme(slug): string { themeModes.setDarkTheme(slug); return themeModes.state.darkTheme }
+    function selectProfile(id): string { themeModes.selectProfile(id); return themeModes.state.activeProfile }
     function refreshThemes(): string { themeModes.refreshThemes(); return "ok" }
     function status(): string {
       return JSON.stringify({

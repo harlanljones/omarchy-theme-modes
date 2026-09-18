@@ -231,7 +231,7 @@ Item {
     if (background && root.backgroundsSlug === slug && !Model.backgroundInList(background, backgrounds))
       background = ""
     var cmd = "omarchy theme set " + shellQuote(slug)
-    if (background) cmd += " && omarchy theme bg set " + shellQuote(background)
+    if (background) cmd += " && omarchy theme bg set " + shellQuote(background) + " && (" + backdropSplitCmd() + " || true)"
     applyProcess.command = ["bash", "-lc", cmd]
     applyProcess.running = true
   }
@@ -240,8 +240,16 @@ Item {
     var target = String(path || "")
     if (!target || !Model.backgroundInList(target, backgrounds) || backgroundProcess.running) return
     lastError = ""
-    backgroundProcess.command = ["bash", "-lc", "omarchy theme bg set " + shellQuote(target)]
+    backgroundProcess.command = ["bash", "-lc", "omarchy theme bg set " + shellQuote(target) + " && (" + backdropSplitCmd() + " || true)"]
     backgroundProcess.running = true
+  }
+
+  // Re-split the new background across every monitor for the Backdrop
+  // plugin. `omarchy theme bg set` fires no theme-set hook, so without this
+  // the per-display segments would keep showing the previous background.
+  // Guarded: a missing/failing splitter must never fail a theme apply.
+  function backdropSplitCmd() {
+    return "command -v backdrop-split >/dev/null && backdrop-split"
   }
 
   function shellQuote(value) {

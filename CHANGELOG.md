@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Re-split Backdrop segments after every background switch: `backdrop-split`
+  runs after `omarchy theme bg set` in `applyCurrentMode` and
+  `applyBackground` (`bg set` fires no theme-set hook, so segments would
+  otherwise keep showing the previous background). Guarded — a missing or
+  failing splitter never fails a theme apply.
+- External theme/profile setters on the `esemczak.theme-modes` IPC target for
+  dotfiles convergence: `setLightTheme`, `setDarkTheme`, `selectProfile`
+  (each returns the resulting state value). Joins `toggleMode`,
+  `nextProfile`/`previousProfile`, `followAutomatic`, `refreshThemes`, `status`.
+
 ### Security
 
 - Add descriptor-safe I/O core: held directory fds, bounded read loops, verified-image cache materialization
