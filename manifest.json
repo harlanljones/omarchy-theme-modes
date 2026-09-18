@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "esemczak.theme-modes",
   "name": "Theme modes",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "esemczak",
   "license": "MIT",
   "description": "Separate light and dark Omarchy themes with per-mode backgrounds, manual switching, and optional automatic mode by schedule or battery.",
