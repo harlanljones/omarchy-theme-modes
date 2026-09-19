@@ -173,6 +173,8 @@ Panel {
     function setLightTheme(slug: string): string { themeModes.setLightTheme(slug); return themeModes.state.lightTheme }
     function setDarkTheme(slug: string): string { themeModes.setDarkTheme(slug); return themeModes.state.darkTheme }
     function selectProfile(id: string): string { themeModes.selectProfile(id); return themeModes.state.activeProfile }
+    function setLightBackground(path: string): string { themeModes.setLightBackground(path); return themeModes.state.lightBackground }
+    function setDarkBackground(path: string): string { themeModes.setDarkBackground(path); return themeModes.state.darkBackground }
     function refreshThemes(): string { themeModes.refreshThemes(); return "ok" }
     function status(): string {
       return JSON.stringify({
